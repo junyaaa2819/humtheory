@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HumTheory — Turn sound into music</title>
+<meta name="description" content="HumTheory is a desktop music analysis and composition workstation. Hum an idea and get the notes, chords, key and MIDI behind it. Beta for Windows and macOS.">
+<link rel="icon" href="img/logo-64.png" type="image/png">
+<link rel="apple-touch-icon" href="img/logo-180.png">
+<style>
+/*═══ TOKENS — inherited from the desktop apps (Theme.swift / styles.css) ═══*/
+:root{
+  --ink:#0b0c11; --deep:#0e0f16; --panel:#1c1f24; --raised:#262931;
+  --line:rgba(255,255,255,.07); --line-2:rgba(255,255,255,.13);
+  --tx:#f5f5f5; --tx2:#9e9e9e; --tx3:#6b6b6b;
+  --cy:#4dc7f2; --vi:#817cf2; --warm:#fa9e40; --ok:#59db80; --hot:#fa7373;
+  --grad:linear-gradient(120deg,var(--cy),var(--vi));
+  --mono:ui-monospace,"Cascadia Code","SF Mono",Menlo,monospace;
+  --disp:"Archivo Black",-apple-system,"Segoe UI",system-ui,sans-serif;
+  --ui:-apple-system,"Segoe UI Variable Display","Segoe UI",Inter,system-ui,sans-serif;
+  --ease:cubic-bezier(.4,0,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--ink);color:var(--tx);font-family:var(--ui);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+img{display:block;max-width:100%}
+.wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+
+/* studio grain + rack lines */
+body::before{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;
+  background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.016) 0 1px,transparent 1px 3px);
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(1200px 700px at 12% -8%,rgba(77,199,242,.10),transparent 60%),
+             radial-gradient(1000px 800px at 100% 10%,rgba(129,124,242,.11),transparent 55%);
+}
+main,header,footer{position:relative;z-index:1}
+
+/*═══ TYPE ═══*/
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--tx3)}
+.kicker b{color:var(--cy);font-weight:600}
+h2.big{
+  font-family:var(--disp);font-weight:900;letter-spacing:-.03em;line-height:.92;
+  font-size:clamp(34px,6.2vw,74px);text-transform:uppercase;
+}
+.lede{color:var(--tx2);font-size:15.5px;max-width:56ch}
+.mono{font-family:var(--mono)}
+
+/*═══ HEADER ═══*/
+header{position:sticky;top:0;z-index:80;background:rgba(11,12,17,.82);backdrop-filter:blur(22px) saturate(1.5);-webkit-backdrop-filter:blur(22px) saturate(1.5);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;gap:14px;height:60px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:16px;letter-spacing:-.02em}
+.brand img{width:28px;height:28px;border-radius:7px;box-shadow:0 2px 12px rgba(77,199,242,.3)}
+.brand small{display:block;font-family:var(--mono);font-size:9.5px;font-weight:400;color:var(--tx3);letter-spacing:.1em;line-height:1}
+.beta{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.14em;background:rgba(250,158,64,.13);color:var(--warm);border:1px solid rgba(250,158,64,.3)}
+.beta i{width:5px;height:5px;border-radius:50%;background:var(--warm);animation:blip 2.4s var(--ease) infinite}
+@keyframes blip{0%,100%{opacity:1}50%{opacity:.35}}
+.nav nav{display:flex;align-items:center;gap:26px;margin-left:auto;font-size:13.5px;color:var(--tx2)}
+.nav nav a{transition:color .16s}
+.nav nav a:hover{color:var(--tx)}
+.nav .get{padding:7px 15px;border-radius:8px;font-weight:600;background:rgba(77,199,242,.13);color:var(--cy);border:1px solid rgba(77,199,242,.26)}
+.burger{display:none;margin-left:auto;width:38px;height:38px;background:none;border:1px solid var(--line);border-radius:8px;color:var(--tx2);font-size:16px;cursor:pointer}
+@media(max-width:900px){
+  .nav nav{position:absolute;top:60px;left:0;right:0;flex-direction:column;align-items:stretch;gap:0;background:var(--deep);border-bottom:1px solid var(--line);padding:6px 28px 20px;display:none}
+  .nav nav.open{display:flex}
+  .nav nav a{padding:13px 0;border-bottom:1px solid var(--line)}
+  .nav .get{margin-top:12px;text-align:center}
+  .burger{display:block}
+}
+
+/*═══ HERO ═══*/
+.hero{padding:60px 0 40px;position:relative}
+.hero-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:26px}
+.plat-pill{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--tx2);border:1px solid var(--line);border-radius:999px;padding:5px 12px}
+.plat-pill svg{opacity:.7}
+h1.word{
+  font-family:var(--disp);font-weight:900;text-transform:uppercase;
+  font-size:clamp(40px,9vw,116px);line-height:.86;letter-spacing:-.045em;
+}
+h1.word .l2{display:block;color:transparent;background:var(--grad);-webkit-background-clip:text;background-clip:text}
+.hero .sub{margin-top:20px;font-size:16.5px;color:var(--tx2);max-width:46ch}
+.hero .cta{display:flex;gap:11px;flex-wrap:wrap;margin-top:26px}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:12px 20px;border-radius:9px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--tx);transition:transform .15s var(--ease),background .15s,border-color .15s}
+.btn:hover{transform:translateY(-2px);background:rgba(255,255,255,.08)}
+.btn.pri{background:rgba(77,199,242,.14);border-color:rgba(77,199,242,.3);color:var(--cy)}
+.btn.pri:hover{background:rgba(77,199,242,.24)}
+
+/* SIGNATURE 1 — the transform strip */
+.transform{
+  position:relative;margin-top:44px;border:1px solid var(--line);border-radius:18px;overflow:hidden;
+  background:linear-gradient(180deg,rgba(28,31,36,.9),rgba(14,15,22,.9));
+  box-shadow:0 24px 70px rgba(0,0,0,.5);
+}
+.transform .rail{display:flex;align-items:center;gap:0;padding:9px 14px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.02);flex-wrap:wrap}
+.stage{
+  display:flex;align-items:center;gap:7px;padding:5px 13px;border-radius:999px;
+  font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--tx3);
+  transition:color .35s var(--ease),background .35s var(--ease);white-space:nowrap;
+}
+.stage.on{color:var(--cy);background:rgba(77,199,242,.12)}
+.stage .d{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.55}
+.stage.on .d{opacity:1;box-shadow:0 0 9px currentColor}
+.rail .arrow{color:var(--tx3);opacity:.35;font-size:11px;padding:0 2px}
+#stageCanvas{display:block;width:100%;height:260px}
+@media(max-width:700px){#stageCanvas{height:200px}}
+.transform .readout{
+  display:flex;gap:0;border-top:1px solid var(--line);background:rgba(0,0,0,.28);flex-wrap:wrap;
+}
+.cell{flex:1;min-width:96px;padding:11px 16px;border-right:1px solid var(--line)}
+.cell:last-child{border-right:0}
+.cell .k{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--tx3);text-transform:uppercase}
+.cell .v{font-family:var(--mono);font-size:17px;font-weight:600;margin-top:3px;color:var(--tx);min-height:24px}
+.cell .v.cy{color:var(--cy)} .cell .v.vi{color:var(--vi)} .cell .v.ok{color:var(--ok)}
+
+/*═══ STATEMENT bands ═══*/
+.statement{padding:74px 0 10px}
+.statement h2{font-family:var(--disp);font-weight:900;text-transform:uppercase;letter-spacing:-.035em;line-height:.9;font-size:clamp(30px,6.6vw,82px)}
+.statement h2 em{font-style:normal;color:transparent;background:var(--grad);-webkit-background-clip:text;background-clip:text}
+
+/*═══ SECTIONS ═══*/
+section{padding:64px 0;position:relative}
+.head{margin-bottom:30px;max-width:640px}
+.head h3{font-family:var(--disp);text-transform:uppercase;font-weight:900;letter-spacing:-.025em;font-size:clamp(24px,3.4vw,40px);line-height:.95;margin:12px 0 12px}
+.head p{color:var(--tx2);font-size:15px}
+
+/* SIGNATURE 2 — piano roll */
+.roll-wrap{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--panel);box-shadow:0 18px 50px rgba(0,0,0,.42)}
+.roll-bar{display:flex;align-items:center;gap:14px;padding:11px 16px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.02);flex-wrap:wrap}
+.chordnow{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--cy);min-width:104px;letter-spacing:-.02em;transition:color .3s}
+.roman{font-family:var(--mono);font-size:11px;color:var(--tx3);letter-spacing:.14em}
+.roll-bar .tp{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--tx3);letter-spacing:.1em}
+#rollCanvas{display:block;width:100%;height:250px}
+@media(max-width:700px){#rollCanvas{height:190px}}
+.playbtn{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--tx2);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:.15s}
+.playbtn:hover{color:var(--tx);border-color:var(--line-2)}
+
+/* SIGNATURE 3 — circle of fifths */
+.cof{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,380px);gap:34px;align-items:center}
+@media(max-width:880px){.cof{grid-template-columns:1fr;gap:24px}}
+#cofSvg{width:100%;max-width:460px;height:auto;margin:0 auto;display:block;touch-action:manipulation}
+.cof-seg{cursor:pointer;transition:opacity .18s}
+.cof-seg:hover{opacity:.82}
+.cof-info .row{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);align-items:baseline;flex-wrap:wrap}
+.cof-info .row:last-child{border-bottom:0}
+.cof-info .lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--tx3);min-width:104px}
+.cof-info .val{font-size:14.5px;font-weight:600}
+.nchip{display:inline-block;font-family:var(--mono);font-size:12px;padding:3px 8px;border-radius:6px;background:rgba(255,255,255,.05);border:1px solid var(--line);margin:2px 3px 2px 0}
+.dchip{display:inline-block;font-size:12.5px;padding:4px 9px;border-radius:7px;background:rgba(255,255,255,.04);border:1px solid var(--line);margin:2px 4px 2px 0}
+.dchip b{font-family:var(--mono);font-size:9.5px;color:var(--tx3);display:block;letter-spacing:.1em}
+
+/* feature blocks — each different, not a card grid */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:center}
+.split.rev>*:first-child{order:2}
+@media(max-width:840px){.split,.split.rev{grid-template-columns:1fr}.split.rev>*:first-child{order:0}}
+.demo-box{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:20px;box-shadow:0 12px 36px rgba(0,0,0,.35)}
+.demo-box .cap{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--tx3);margin-bottom:14px}
+
+/* chord resolve demo */
+.resolve{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center;min-height:76px}
+.rnote{font-family:var(--mono);font-size:19px;font-weight:600;padding:9px 13px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.04);opacity:0;transform:translateY(8px);transition:all .4s var(--ease)}
+.rnote.in{opacity:1;transform:none}
+.rarrow{color:var(--tx3);opacity:0;transition:opacity .4s .1s}
+.rarrow.in{opacity:1}
+.rchord{font-family:var(--mono);font-size:26px;font-weight:700;color:var(--cy);opacity:0;transform:scale(.9);transition:all .45s var(--ease)}
+.rchord.in{opacity:1;transform:none}
+.alts{text-align:center;margin-top:12px;font-family:var(--mono);font-size:11px;color:var(--tx3);opacity:0;transition:opacity .5s .3s}
+.alts.in{opacity:.9}
+
+/* fretboard */
+#fretSvg{width:100%;height:auto}
+.tabline{font-family:var(--mono);font-size:12.5px;color:var(--tx2);line-height:1.8;margin-top:14px;overflow-x:auto;white-space:pre}
+
+/* progression generator */
+.prog{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:14px;min-height:52px}
+.pchip{
+  font-family:var(--mono);font-size:15px;font-weight:600;padding:11px 15px;border-radius:10px;
+  border:1px solid var(--line);background:rgba(255,255,255,.04);
+  animation:pop .34s var(--ease) both;
+}
+.pchip b{display:block;font-size:9px;color:var(--tx3);letter-spacing:.12em;font-weight:500}
+@keyframes pop{from{opacity:0;transform:translateY(9px) scale(.96)}to{opacity:1;transform:none}}
+
+/* song timeline */
+#songCanvas{display:block;width:100%;height:118px;border-radius:11px;border:1px solid var(--line);background:rgba(0,0,0,.25)}
+
+/* screenshots */
+.shots{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:820px){.shots{grid-template-columns:1fr}}
+.shot{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);cursor:zoom-in;background:var(--panel);transition:transform .3s var(--ease),border-color .3s}
+.shot:hover{transform:translateY(-4px);border-color:var(--line-2)}
+.shot img{width:100%}
+.shot .tag{position:absolute;top:12px;left:12px;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;padding:4px 10px;border-radius:999px;background:rgba(11,12,17,.82);backdrop-filter:blur(8px);border:1px solid var(--line-2)}
+.shot .tag.mac{color:var(--vi)} .shot .tag.win{color:var(--cy)}
+
+/* platforms */
+.plats{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:760px){.plats{grid-template-columns:1fr}}
+.pcard{border:1px solid var(--line);border-radius:14px;padding:22px;background:var(--panel);position:relative;overflow:hidden}
+.pcard::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:var(--grad);opacity:.55}
+.pcard h4{display:flex;align-items:center;gap:11px;font-size:17px;font-weight:700;margin-bottom:5px}
+.pcard .st{font-family:var(--mono);font-size:10.5px;color:var(--tx3);letter-spacing:.1em;margin-bottom:14px}
+.pcard ul{list-style:none;display:grid;gap:8px}
+.pcard li{font-size:13.5px;color:var(--tx2);display:flex;gap:9px;align-items:flex-start}
+.pcard li svg{flex-shrink:0;margin-top:4px}
+.code{font-family:var(--mono);font-size:12px;color:var(--tx2);background:var(--ink);border:1px solid var(--line);border-radius:9px;padding:13px;margin-top:14px;line-height:1.85;overflow-x:auto}
+.code i{color:var(--tx3);font-style:normal}
+
+/* beta note */
+.betanote{border:1px solid var(--line);border-left:3px solid var(--warm);border-radius:12px;padding:18px 22px;background:var(--panel);margin-top:26px}
+.betanote b{display:block;margin-bottom:5px;font-size:14.5px}
+.betanote p{font-size:13.5px;color:var(--tx2)}
+
+/* footer */
+footer{border-top:1px solid var(--line);padding:44px 0 30px;margin-top:44px}
+.fgrid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:30px}
+@media(max-width:760px){.fgrid{grid-template-columns:1fr 1fr}}
+@media(max-width:460px){.fgrid{grid-template-columns:1fr}}
+.fgrid h5{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--tx3);margin-bottom:12px}
+.fgrid ul{list-style:none;display:grid;gap:9px}
+.fgrid a,.fgrid li{font-size:13.5px;color:var(--tx2)}
+.fgrid a:hover{color:var(--tx)}
+.fgrid li.soon{color:var(--tx3)}
+.fbot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:34px;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--tx3)}
+.wm{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em}
+.wm img{width:14px;height:14px;border-radius:4px}
+.wm span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700}
+
+/* lightbox */
+.lb{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;padding:28px;cursor:zoom-out}
+.lb.open{display:flex}
+.lb img{max-width:100%;max-height:88vh;border-radius:11px;border:1px solid var(--line-2)}
+.lb .x{position:absolute;top:22px;right:26px;width:38px;height:38px;background:none;border:1px solid var(--line);border-radius:8px;color:var(--tx2);font-size:16px;cursor:pointer}
+
+/* reveal */
+.rv{opacity:0;transform:translateY(22px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.rv.seen{opacity:1;transform:none}
+
+:focus-visible{outline:2px solid var(--cy);outline-offset:3px;border-radius:5px}
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+  .rv{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="#top"><img src="img/logo-256.png" alt="" width="28" height="28"><span>HumTheory<small>PITCH &amp; THEORY</small></span></a>
+    <span class="beta"><i></i>BETA</span>
+    <button class="burger" id="burger" aria-label="Menu" aria-expanded="false">☰</button>
+    <nav id="menu">
+      <a href="#roll">Piano roll</a>
+      <a href="#tools">Tools</a>
+      <a href="#circle">Circle</a>
+      <a href="#shots">Screens</a>
+      <a class="get" href="#get">Get the beta</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+<!--═══ HERO — SIGNATURE MOMENT 1 ═══-->
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-top">
+      <span class="plat-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M4 5.5l7-1v6.5H4V5.5zm0 13l7 1V13H4v5.5zM12.5 4.3L21 3v8h-8.5V4.3zm0 15.4L21 21v-8h-8.5v6.7z"/></svg>WINDOWS</span>
+      <span class="plat-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.8c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.15-2.8.85-3.5.85s-1.8-.83-3-.8c-1.5.02-2.9.9-3.7 2.25-1.6 2.75-.4 6.8 1.1 9 .75 1.1 1.6 2.3 2.8 2.25 1.1-.05 1.5-.7 2.9-.7s1.7.7 2.9.7c1.2 0 2-1.1 2.7-2.2.85-1.25 1.2-2.5 1.2-2.55-.03-.02-2.3-.9-2.3-3.5zM14.1 5.9c.6-.75 1-1.8.9-2.9-.87.04-1.95.6-2.6 1.35-.57.65-1.07 1.7-.93 2.7.98.08 1.98-.5 2.63-1.15z"/></svg>MACOS</span>
+      <span class="plat-pill" style="color:var(--tx3)">DESKTOP · LOCAL · NO CLOUD</span>
+    </div>
+
+    <h1 class="word">Turn sound<span class="l2">into music.</span></h1>
+    <p class="sub">Hum it. HumTheory hears the pitch, names the chord, finds the key — and hands you the MIDI.</p>
+
+    <div class="cta">
+      <a class="btn pri" href="#get">Get the beta</a>
+      <a class="btn" href="#roll">See it work</a>
+    </div>
+
+    <!-- the transform strip: waveform → pitch → notes → chord → MIDI -->
+    <div class="transform" id="transform">
+      <div class="rail" id="rail">
+        <span class="stage" data-s="0"><i class="d"></i>SIGNAL</span><span class="arrow">→</span>
+        <span class="stage" data-s="1"><i class="d"></i>PITCH</span><span class="arrow">→</span>
+        <span class="stage" data-s="2"><i class="d"></i>NOTES</span><span class="arrow">→</span>
+        <span class="stage" data-s="3"><i class="d"></i>CHORD</span><span class="arrow">→</span>
+        <span class="stage" data-s="4"><i class="d"></i>MIDI</span>
+      </div>
+      <canvas id="stageCanvas" aria-label="Animated visualization: an audio waveform resolving into pitch, notes, a chord and MIDI blocks"></canvas>
+      <div class="readout">
+        <div class="cell"><div class="k">Input</div><div class="v" id="rIn">—</div></div>
+        <div class="cell"><div class="k">Pitch</div><div class="v cy" id="rHz">—</div></div>
+        <div class="cell"><div class="k">Note</div><div class="v" id="rNote">—</div></div>
+        <div class="cell"><div class="k">Chord</div><div class="v vi" id="rChord">—</div></div>
+        <div class="cell"><div class="k">Export</div><div class="v ok" id="rExp">—</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!--═══ STATEMENT ═══-->
+<div class="statement wrap rv"><h2>Hum it. <em>See it.</em> Use it.</h2></div>
+
+<!--═══ SIGNATURE MOMENT 2 — PIANO ROLL ═══-->
+<section id="roll">
+  <div class="wrap">
+    <div class="head rv">
+      <div class="kicker"><b>02</b> — PIANO ROLL</div>
+      <h3>Watch harmony move</h3>
+      <p class="lede">A progression playing through the roll. As the playhead crosses each bar, the chord resolves and the notes light up — the same view the desktop app builds from your recordings, generated melodies and imported MIDI.</p>
+    </div>
+    <div class="roll-wrap rv">
+      <div class="roll-bar">
+        <button class="playbtn" id="rollPlay" aria-label="Play or pause the piano roll">❚❚</button>
+        <div>
+          <div class="chordnow" id="chordNow">Cmaj7</div>
+          <div class="roman" id="romanNow">I — TONIC</div>
+        </div>
+        <span class="tp">KEY OF C · 100 BPM · 4/4</span>
+      </div>
+      <canvas id="rollCanvas" aria-label="Animated piano roll playing a four-chord progression"></canvas>
+    </div>
+  </div>
+</section>
+
+<!--═══ TOOLS ═══-->
+<section id="tools">
+  <div class="wrap">
+    <div class="head rv">
+      <div class="kicker"><b>03</b> — WHAT IT DOES</div>
+      <h3>Sound in, information out</h3>
+    </div>
+
+    <!-- hum to midi -->
+    <div class="split rv" style="margin-bottom:64px">
+      <div>
+        <div class="kicker" style="margin-bottom:10px">HUM TO MIDI</div>
+        <h4 style="font-size:24px;font-weight:700;letter-spacing:-.02em;margin-bottom:10px">Your voice becomes notes</h4>
+        <p class="lede">Sing anything. Pitch tracking runs in real time, locks each note as you hold it, and drops it onto the roll — ready to export as a standard MIDI file and drag into your DAW.</p>
+      </div>
+      <div class="demo-box">
+        <div class="cap">LIVE PITCH → NOTE LOCK</div>
+        <canvas id="humCanvas" style="width:100%;height:150px;display:block" aria-label="A live pitch curve snapping to detected note names"></canvas>
+      </div>
+    </div>
+
+    <!-- chord analyzer -->
+    <div class="split rev rv" style="margin-bottom:64px">
+      <div>
+        <div class="kicker" style="margin-bottom:10px">CHORD ANALYZER</div>
+        <h4 style="font-size:24px;font-weight:700;letter-spacing:-.02em;margin-bottom:10px">Notes resolve into chords</h4>
+        <p class="lede">Play or sing several notes and HumTheory works out what they add up to — with a confidence value and the runner-up interpretations, because harmony is genuinely ambiguous sometimes.</p>
+      </div>
+      <div class="demo-box" id="resolveBox">
+        <div class="cap">DETECTED PITCH CLASSES</div>
+        <div class="resolve">
+          <span class="rnote" data-i="0">C</span><span class="rnote" data-i="1">E</span>
+          <span class="rnote" data-i="2">G</span><span class="rnote" data-i="3">B</span>
+          <span class="rarrow">→</span><span class="rchord">Cmaj7</span>
+        </div>
+        <div class="alts">92% match · also possible: Em6 · G6/9</div>
+      </div>
+    </div>
+
+    <!-- song analyzer -->
+    <div class="split rv" style="margin-bottom:64px">
+      <div>
+        <div class="kicker" style="margin-bottom:10px">SONG ANALYZER</div>
+        <h4 style="font-size:24px;font-weight:700;letter-spacing:-.02em;margin-bottom:10px">Take a track apart</h4>
+        <p class="lede">Load an audio file. HumTheory estimates key and tempo, decodes a chord timeline and marks section boundaries — all on your own machine, nothing uploaded.</p>
+      </div>
+      <div class="demo-box">
+        <div class="cap">WAVEFORM · CHORDS · SECTIONS</div>
+        <canvas id="songCanvas" aria-label="A song waveform with a moving playhead, chord markers and section labels"></canvas>
+      </div>
+    </div>
+
+    <!-- progression generator -->
+    <div class="split rev rv" style="margin-bottom:64px">
+      <div>
+        <div class="kicker" style="margin-bottom:10px">PROGRESSION GENERATOR</div>
+        <h4 style="font-size:24px;font-weight:700;letter-spacing:-.02em;margin-bottom:10px">Progressions that fit your key</h4>
+        <p class="lede">Genre-aware suggestions built from the key you're actually in — pop, jazz, blues, lo-fi and more. Audition them, send them to the roll, export the MIDI.</p>
+      </div>
+      <div class="demo-box">
+        <div class="cap"><span id="genreCap">POP</span> · KEY OF C</div>
+        <div class="prog" id="progOut"></div>
+        <button class="btn" id="regen" style="padding:9px 15px;font-size:13px">↻ Generate another</button>
+      </div>
+    </div>
+
+    <!-- guitar -->
+    <div class="split rv">
+      <div>
+        <div class="kicker" style="margin-bottom:10px">GUITAR &amp; TABS</div>
+        <h4 style="font-size:24px;font-weight:700;letter-spacing:-.02em;margin-bottom:10px">Every chord, on the neck</h4>
+        <p class="lede">Chords map onto a playable fretboard with real fingering positions. Hover a chord to light up the shape.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px" id="fretChords"></div>
+      </div>
+      <div class="demo-box">
+        <div class="cap">FRETBOARD · <span id="fretName">Cmaj7</span></div>
+        <svg id="fretSvg" viewBox="0 0 460 160" aria-label="Guitar fretboard highlighting the selected chord shape"></svg>
+        <div class="tabline" id="tabOut"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!--═══ STATEMENT ═══-->
+<div class="statement wrap rv"><h2>From voice <em>to MIDI.</em></h2></div>
+
+<!--═══ SIGNATURE MOMENT 3 — CIRCLE OF FIFTHS ═══-->
+<section id="circle">
+  <div class="wrap">
+    <div class="head rv">
+      <div class="kicker"><b>04</b> — MUSIC THEORY</div>
+      <h3>The whole key, at a glance</h3>
+      <p class="lede">Tap any key. Everything around it updates — relative minor, scale notes, diatonic chords, Roman numerals. This is the real tool from the app, running here.</p>
+    </div>
+    <div class="cof rv">
+      <svg id="cofSvg" viewBox="0 0 460 460" role="group" aria-label="Interactive circle of fifths"></svg>
+      <div class="cof-info">
+        <div class="row"><span class="lbl">Key</span><span class="val" id="ciKey">C Major</span></div>
+        <div class="row"><span class="lbl">Relative minor</span><span class="val" id="ciRel">A minor</span></div>
+        <div class="row"><span class="lbl">Scale notes</span><span class="val" id="ciNotes"></span></div>
+        <div class="row"><span class="lbl">Diatonic chords</span><span class="val" id="ciDia"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!--═══ SCREENSHOTS ═══-->
+<section id="shots">
+  <div class="wrap">
+    <div class="head rv">
+      <div class="kicker"><b>05</b> — THE APP</div>
+      <h3>Real builds, running now</h3>
+      <p class="lede">The Tuner on each platform. Same engine, same navigation, same analysis — click either to look closer.</p>
+    </div>
+    <div class="shots rv">
+      <figure class="shot" data-full="img/mac-tuner.webp" data-cap="HumTheory for macOS — Tuner">
+        <span class="tag mac">MACOS · TUNER</span>
+        <img src="img/mac-tuner-thumb.webp" loading="lazy" width="760" height="524" alt="HumTheory on macOS: sidebar navigation, pitch halo readout, frequency, cents and confidence meters, and a guitar fretboard.">
+      </figure>
+      <figure class="shot" data-full="img/win-tuner.webp" data-cap="HumTheory for Windows — Tuner">
+        <span class="tag win">WINDOWS · TUNER</span>
+        <img src="img/win-tuner-thumb.webp" loading="lazy" width="760" height="479" alt="HumTheory on Windows: sidebar navigation, transport bar with listen button, and a cents meter.">
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!--═══ PLATFORMS + GET ═══-->
+<section id="get">
+  <div class="wrap">
+    <div class="head rv">
+      <div class="kicker"><b>06</b> — GET IT</div>
+      <h3>Built for the desktop</h3>
+      <p class="lede">Low-latency microphone access and local analysis. Your audio never leaves your computer.</p>
+    </div>
+    <div class="plats rv">
+      <div class="pcard">
+        <h4><svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M4 5.5l7-1v6.5H4V5.5zm0 13l7 1V13H4v5.5zM12.5 4.3L21 3v8h-8.5V4.3zm0 15.4L21 21v-8h-8.5v6.7z"/></svg>HumTheory for Windows</h4>
+        <div class="st">BETA · ACTIVELY DEVELOPING</div>
+        <ul>
+          <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>Full analysis engine &amp; theory tools</li>
+          <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>MIDI import <em>and</em> export</li>
+        </ul>
+        <div class="code">npm install<br>npm start <i># run</i><br>npm run dist <i># build installer</i></div>
+      </div>
+      <div class="pcard">
+        <h4><svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.8c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.15-2.8.85-3.5.85s-1.8-.83-3-.8c-1.5.02-2.9.9-3.7 2.25-1.6 2.75-.4 6.8 1.1 9 .75 1.1 1.6 2.3 2.8 2.25 1.1-.05 1.5-.7 2.9-.7s1.7.7 2.9.7c1.2 0 2-1.1 2.7-2.2.85-1.25 1.2-2.5 1.2-2.55-.03-.02-2.3-.9-2.3-3.5zM14.1 5.9c.6-.75 1-1.8.9-2.9-.87.04-1.95.6-2.6 1.35-.57.65-1.07 1.7-.93 2.7.98.08 1.98-.5 2.63-1.15z"/></svg>HumTheory for macOS</h4>
+        <div class="st">BETA · AVAILABLE</div>
+        <ul>
+          <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>Full analysis engine &amp; theory tools</li>
+          <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>Playback against a detected chord timeline</li>
+        </ul>
+        <div class="code">open HumTheory.xcodeproj<br><i># Product → Run (⌘R)</i></div>
+      </div>
+    </div>
+
+    <div class="betanote rv">
+      <b>HumTheory is currently in beta.</b>
+      <p>Some features may be incomplete, experimental, or not work correctly yet. Detection is an estimate — the app shows confidence values and flags ambiguous chords rather than pretending to be certain. Project saving and piano-roll note editing aren't built yet. There are no hosted installers so far; the beta is built from source.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="fgrid">
+      <div>
+        <a class="brand" href="#top"><img src="img/logo-256.png" alt="" width="28" height="28"><span>HumTheory<small>PITCH &amp; THEORY</small></span></a>
+        <p style="font-size:13.5px;color:var(--tx2);max-width:280px;margin-top:12px">A desktop music analysis and composition workstation.</p>
+        <span class="beta" style="margin-top:14px"><i></i>BETA</span>
+      </div>
+      <div><h5>Explore</h5><ul>
+        <li><a href="#roll">Piano roll</a></li><li><a href="#tools">Tools</a></li>
+        <li><a href="#circle">Circle of fifths</a></li><li><a href="#shots">Screenshots</a></li>
+      </ul></div>
+      <div><h5>Platforms</h5><ul>
+        <li><a href="#get">Windows</a></li><li><a href="#get">macOS</a></li><li><a href="#get">Get the beta</a></li>
+      </ul></div>
+      <div><h5>Legal</h5><ul>
+        <li class="soon">Privacy — coming later</li><li class="soon">Terms — coming later</li>
+      </ul></div>
+    </div>
+    <div class="fbot">
+      <span>© <span id="yr">2026</span> HumTheory</span>
+      <span class="wm"><img src="img/logo-256.png" alt=""><span>created by junyaven</span></span>
+    </div>
+  </div>
+</footer>
+
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Screenshot viewer">
+  <button class="x" id="lbx" aria-label="Close">✕</button><img id="lbi" src="" alt="">
+</div>
+
+<script>
+"use strict";
+const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const CY = "#4dc7f2", VI = "#817cf2", OK = "#59db80";
+const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+// PitchPalette from the app: hue = (pc/12 + 0.58) mod 1, s .60, v .97
+function pcColor(pc){
+  const h=((pc/12+0.58)%1+1)%1, s=.6, v=.97, i=Math.floor(h*6), f=h*6-i;
+  const p=v*(1-s), q=v*(1-f*s), t=v*(1-(1-f)*s);
+  const [r,g,b]=[[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]][i%6];
+  const H=x=>Math.round(x*255).toString(16).padStart(2,"0");
+  return "#"+H(r)+H(g)+H(b);
+}
+function dpi(cv,h){
+  const d=devicePixelRatio||1, w=cv.clientWidth||600;
+  cv.width=Math.round(w*d); cv.height=Math.round(h*d);
+  const c=cv.getContext("2d"); c.setTransform(1,0,0,1,0,0); c.scale(d,d);
+  return {c,w,h};
+}
+// run a canvas loop only while it's on screen — keeps the page cheap
+function onScreen(el,fn){
+  let on=false,raf=null;
+  const loop=t=>{ if(!on)return; fn(t); raf=requestAnimationFrame(loop); };
+  new IntersectionObserver(es=>es.forEach(e=>{
+    on=e.isIntersecting;
+    if(on&&!raf)raf=requestAnimationFrame(loop);
+    if(!on&&raf){cancelAnimationFrame(raf);raf=null;}
+  }),{threshold:.05}).observe(el);
+  fn(0);
+}
+
+/*── reveal ──*/
+const revObs=new IntersectionObserver((es,o)=>es.forEach(e=>{
+  if(e.isIntersecting){e.target.classList.add("seen");o.unobserve(e.target);}
+}),{threshold:.12,rootMargin:"0px 0px -8% 0px"});
+document.querySelectorAll(".rv").forEach(el=>revObs.observe(el));
+
+/*═══ SIGNATURE 1 — hero transform ═══*/
+(function(){
+  const cv=document.getElementById("stageCanvas"); if(!cv)return;
+  const rail=[...document.querySelectorAll(".stage")];
+  const rIn=document.getElementById("rIn"),rHz=document.getElementById("rHz"),
+        rNote=document.getElementById("rNote"),rChord=document.getElementById("rChord"),rExp=document.getElementById("rExp");
+  const CHORD=[0,4,7,11], HZ=[261.6,329.6,392.0,493.9], NM=["C4","E4","G4","B4"];
+  let mx=0.5,my=0.5;
+  document.getElementById("transform").addEventListener("pointermove",e=>{
+    const r=e.currentTarget.getBoundingClientRect();
+    mx=(e.clientX-r.left)/r.width; my=(e.clientY-r.top)/r.height;
+  });
+  const T=8000; // one full cycle
+  onScreen(cv,ts=>{
+    const {c,w,h}=dpi(cv,cv.clientHeight||260);
+    const p=RM?0.62:((ts%T)/T);
+    c.clearRect(0,0,w,h);
+    const stage=Math.min(4,Math.floor(p*5)), sp=(p*5)%1;
+    rail.forEach((s,i)=>s.classList.toggle("on",i===stage));
+
+    const mid=h/2, bend=(my-0.5)*22;
+    // grid
+    c.strokeStyle="rgba(255,255,255,.045)"; c.lineWidth=1;
+    for(let i=1;i<6;i++){c.beginPath();c.moveTo(0,h*i/6);c.lineTo(w,h*i/6);c.stroke();}
+
+    // 0 SIGNAL / 1 PITCH — waveform that smooths into a pitch curve
+    if(stage<=1){
+      const smooth=stage===0?0:sp;
+      c.lineWidth=2; c.strokeStyle=stage===0?"rgba(255,255,255,.5)":CY;
+      c.beginPath();
+      for(let x=0;x<=w;x+=2){
+        const u=x/w, dist=Math.abs(u-mx);
+        const noise=Math.sin(u*54+ts/210)*Math.sin(u*23-ts/330)*20*(1-smooth);
+        const curve=Math.sin(u*4.4+ts/700)*34*smooth;
+        const pull=bend*Math.exp(-dist*dist*16);
+        const y=mid+noise+curve+pull;
+        x?c.lineTo(x,y):c.moveTo(x,y);
+      }
+      c.stroke();
+      if(stage===1){
+        c.strokeStyle="rgba(77,199,242,.18)"; c.lineWidth=10; c.globalAlpha=.5; c.stroke(); c.globalAlpha=1;
+      }
+      rIn.textContent=stage===0?"mic":"tracking";
+      rHz.textContent=stage===1?(196+Math.sin(ts/700)*4).toFixed(1)+" Hz":"—";
+      rNote.textContent="—"; rChord.textContent="—"; rExp.textContent="—";
+    }
+    // 2 NOTES — curve quantizes into blocks
+    else if(stage===2){
+      const n=4, bw=w/(n+2);
+      for(let i=0;i<n;i++){
+        const a=Math.max(0,Math.min(1,sp*n-i));
+        if(a<=0)continue;
+        const y=h*0.74-i*(h*0.15);
+        const x=bw*(i+1);
+        c.globalAlpha=a; c.fillStyle=pcColor(CHORD[i]);
+        c.beginPath(); c.roundRect(x,y-9+(1-a)*16,bw*0.86,18,6); c.fill();
+        c.globalAlpha=a; c.fillStyle="rgba(11,12,17,.9)"; c.font="600 12px "+getComputedStyle(document.body).getPropertyValue("--mono");
+        c.fillText(NM[i],x+9,y+4);
+      }
+      c.globalAlpha=1;
+      rIn.textContent="tracking"; rHz.textContent=HZ[Math.min(3,Math.floor(sp*4))].toFixed(1)+" Hz";
+      rNote.textContent=NM[Math.min(3,Math.floor(sp*4))]; rChord.textContent="—"; rExp.textContent="—";
+    }
+    // 3 CHORD — blocks stack and a label rises
+    else if(stage===3){
+      const cx=w/2;
+      for(let i=0;i<4;i++){
+        const y=mid+38-i*20-sp*10;
+        c.globalAlpha=.92; c.fillStyle=pcColor(CHORD[i]);
+        c.beginPath(); c.roundRect(cx-110,y-7,220,14,7); c.fill();
+      }
+      c.globalAlpha=Math.min(1,sp*2.2);
+      c.fillStyle="#fff"; c.textAlign="center";
+      c.font="700 34px "+getComputedStyle(document.body).getPropertyValue("--mono");
+      c.fillText("Cmaj7",cx,mid-42);
+      c.textAlign="left"; c.globalAlpha=1;
+      rIn.textContent="tracking"; rHz.textContent="—"; rNote.textContent="C·E·G·B";
+      rChord.textContent="Cmaj7"; rExp.textContent="—";
+    }
+    // 4 MIDI — blocks march out
+    else{
+      const n=8;
+      for(let i=0;i<n;i++){
+        const a=Math.max(0,Math.min(1,sp*n*1.3-i));
+        if(a<=0)continue;
+        const x=(w*0.1)+i*(w*0.1)+(1-a)*26;
+        const y=mid+30-((i%4)*17);
+        c.globalAlpha=a*.95; c.fillStyle=pcColor(CHORD[i%4]);
+        c.beginPath(); c.roundRect(x,y,w*0.075,11,4); c.fill();
+      }
+      c.globalAlpha=1;
+      rIn.textContent="tracking"; rHz.textContent="—"; rNote.textContent="C·E·G·B";
+      rChord.textContent="Cmaj7"; rExp.textContent=".mid";
+    }
+  });
+})();
+
+/*═══ SIGNATURE 2 — piano roll ═══*/
+(function(){
+  const cv=document.getElementById("rollCanvas"); if(!cv)return;
+  const nameEl=document.getElementById("chordNow"), romEl=document.getElementById("romanNow");
+  const btn=document.getElementById("rollPlay");
+  const PROG=[
+    {n:"Cmaj7",r:"I — TONIC",  pcs:[60,64,67,71]},
+    {n:"Am7",  r:"vi — RELATIVE", pcs:[57,60,64,67]},
+    {n:"Fmaj7",r:"IV — SUBDOMINANT", pcs:[53,57,60,64]},
+    {n:"G7",   r:"V — DOMINANT", pcs:[55,59,62,65]},
+  ];
+  const BAR=2100, TOT=BAR*PROG.length;
+  let playing=!RM, t0=performance.now(), acc=RM?BAR*0.4:0, cur=-1;
+  btn.textContent=playing?"❚❚":"▶";
+  btn.addEventListener("click",()=>{
+    playing=!playing; btn.textContent=playing?"❚❚":"▶";
+    if(playing)t0=performance.now();
+  });
+  const all=PROG.flatMap(p=>p.pcs), lo=Math.min(...all)-2, hi=Math.max(...all)+2;
+  onScreen(cv,()=>{
+    const {c,w,h}=dpi(cv,cv.clientHeight||250);
+    if(playing){const now=performance.now();acc+=now-t0;t0=now;}
+    const pos=(acc%TOT)/TOT, idx=Math.floor(pos*PROG.length);
+    if(idx!==cur){cur=idx;const p=PROG[idx];nameEl.textContent=p.n;romEl.textContent=p.r;
+      nameEl.style.color=pcColor(p.pcs[0]%12);}
+    c.clearRect(0,0,w,h);
+    const rows=hi-lo+1, rh=h/rows, LW=42, gw=w-LW;
+    // lanes
+    for(let m=lo;m<=hi;m++){
+      const y=h-(m-lo+1)*rh, pc=((m%12)+12)%12;
+      const acc2=[1,3,6,8,10].includes(pc);
+      c.fillStyle=acc2?"rgba(0,0,0,.3)":"rgba(255,255,255,.022)";
+      c.fillRect(LW,y,gw,rh);
+      c.strokeStyle=pc===0?"rgba(255,255,255,.15)":"rgba(255,255,255,.045)";
+      c.beginPath();c.moveTo(LW,y+rh);c.lineTo(w,y+rh);c.stroke();
+      if(pc===0){c.fillStyle="rgba(255,255,255,.4)";c.font="9px "+getComputedStyle(document.body).getPropertyValue("--mono");
+        c.textAlign="right";c.fillText("C"+(Math.floor(m/12)-1),LW-6,y+rh-3);c.textAlign="left";}
+    }
+    // bar lines
+    for(let b=0;b<=PROG.length;b++){
+      const x=LW+(b/PROG.length)*gw;
+      c.strokeStyle="rgba(255,255,255,.13)";c.beginPath();c.moveTo(x,0);c.lineTo(x,h);c.stroke();
+    }
+    // notes
+    const px=LW+pos*gw;
+    PROG.forEach((p,i)=>{
+      const x=LW+(i/PROG.length)*gw, bw=gw/PROG.length-4;
+      p.pcs.forEach(m=>{
+        const y=h-(m-lo+1)*rh+rh*.18, bh=rh*.64;
+        const live=px>=x&&px<=x+bw;
+        c.fillStyle=pcColor(m%12);
+        c.globalAlpha=live?1:.42;
+        c.beginPath();c.roundRect(x+2,y,bw,bh,Math.min(4,bh/2));c.fill();
+        if(live){c.shadowColor=pcColor(m%12);c.shadowBlur=14;c.fill();c.shadowBlur=0;}
+        c.globalAlpha=1;
+      });
+      c.fillStyle=px>=x&&px<=x+bw?"rgba(255,255,255,.9)":"rgba(255,255,255,.32)";
+      c.font="600 11px "+getComputedStyle(document.body).getPropertyValue("--mono");
+      c.fillText(p.n,x+6,13);
+    });
+    // playhead
+    c.strokeStyle=CY;c.lineWidth=2;c.shadowColor=CY;c.shadowBlur=12;
+    c.beginPath();c.moveTo(px,0);c.lineTo(px,h);c.stroke();c.shadowBlur=0;
+  });
+})();
+
+/*═══ hum → note lock ═══*/
+(function(){
+  const cv=document.getElementById("humCanvas"); if(!cv)return;
+  const SEQ=[62,64,67,69,67,64], SEG=1200;
+  onScreen(cv,ts=>{
+    const {c,w,h}=dpi(cv,150);
+    c.clearRect(0,0,w,h);
+    const lo=60,hi=72,rows=hi-lo;
+    c.strokeStyle="rgba(255,255,255,.05)";
+    for(let m=lo;m<=hi;m++){const y=h-((m-lo)/rows)*h;c.beginPath();c.moveTo(0,y);c.lineTo(w,y);c.stroke();}
+    const T=SEQ.length*SEG, p=RM?0.5:((ts%T)/T);
+    // pitch curve with vibrato, snapping to the current target
+    c.beginPath(); c.lineWidth=2; c.strokeStyle=CY;
+    for(let x=0;x<=w;x+=2){
+      const u=x/w; if(u>p)break;
+      const i=Math.min(SEQ.length-1,Math.floor(u*SEQ.length));
+      const local=(u*SEQ.length)%1;
+      const prev=i?SEQ[i-1]:SEQ[0];
+      const glide=local<.18?prev+(SEQ[i]-prev)*(local/.18):SEQ[i];
+      const vib=Math.sin(u*70+ts/160)*.16*(local>.25?1:0);
+      const y=h-((glide+vib-lo)/rows)*h;
+      x?c.lineTo(x,y):c.moveTo(x,y);
+    }
+    c.stroke();
+    // locked notes behind the curve
+    SEQ.forEach((m,i)=>{
+      const x0=(i/SEQ.length)*w, bw=w/SEQ.length-4;
+      const done=p>(i+.25)/SEQ.length;
+      if(!done)return;
+      const y=h-((m-lo)/rows)*h;
+      c.fillStyle=pcColor(m%12); c.globalAlpha=.28;
+      c.beginPath();c.roundRect(x0+2,y-7,bw,14,5);c.fill();c.globalAlpha=1;
+      c.fillStyle=pcColor(m%12); c.font="600 10px "+getComputedStyle(document.body).getPropertyValue("--mono");
+      c.fillText(NOTES[m%12]+(Math.floor(m/12)-1),x0+6,y-11);
+    });
+    const li=Math.min(SEQ.length-1,Math.floor(p*SEQ.length));
+    c.fillStyle="rgba(255,255,255,.55)";c.font="10px "+getComputedStyle(document.body).getPropertyValue("--mono");
+    c.fillText("LOCKED → "+NOTES[SEQ[li]%12]+(Math.floor(SEQ[li]/12)-1),8,14);
+  });
+})();
+
+/*═══ chord resolve ═══*/
+(function(){
+  const box=document.getElementById("resolveBox"); if(!box)return;
+  const notes=[...box.querySelectorAll(".rnote")], ar=box.querySelector(".rarrow"),
+        ch=box.querySelector(".rchord"), alts=box.querySelector(".alts");
+  let ran=false;
+  function play(){
+    notes.forEach(n=>n.classList.remove("in"));ar.classList.remove("in");
+    ch.classList.remove("in");alts.classList.remove("in");
+    notes.forEach((n,i)=>setTimeout(()=>{n.classList.add("in");n.style.borderColor=pcColor([0,4,7,11][i]);n.style.color=pcColor([0,4,7,11][i]);},i*260));
+    setTimeout(()=>ar.classList.add("in"),1200);
+    setTimeout(()=>ch.classList.add("in"),1400);
+    setTimeout(()=>alts.classList.add("in"),1700);
+  }
+  new IntersectionObserver(es=>es.forEach(e=>{
+    if(e.isIntersecting&&!ran){ran=true;RM?[...notes,ar,ch,alts].forEach(x=>x.classList.add("in")):play();
+      if(!RM)setInterval(play,6200);}
+  }),{threshold:.4}).observe(box);
+})();
+
+/*═══ song timeline ═══*/
+(function(){
+  const cv=document.getElementById("songCanvas"); if(!cv)return;
+  const SEC=[{n:"INTRO",w:.16},{n:"VERSE",w:.26},{n:"CHORUS",w:.28},{n:"VERSE",w:.18},{n:"OUTRO",w:.12}];
+  const CH=["C","G","Am","F","C","G","F","C"];
+  const bars=Array.from({length:150},(_,i)=>0.25+Math.abs(Math.sin(i*.35))*.5+Math.sin(i*.08)*.22);
+  onScreen(cv,ts=>{
+    const {c,w,h}=dpi(cv,118);
+    c.clearRect(0,0,w,h);
+    const p=RM?.42:((ts%14000)/14000);
+    // sections
+    let x=0;
+    SEC.forEach((s,i)=>{
+      const sw=s.w*w;
+      c.fillStyle=i%2?"rgba(255,255,255,.028)":"rgba(255,255,255,.05)";
+      c.fillRect(x,0,sw,14);
+      c.fillStyle="rgba(255,255,255,.42)";c.font="8px "+getComputedStyle(document.body).getPropertyValue("--mono");
+      c.fillText(s.n,x+5,10); x+=sw;
+    });
+    // waveform
+    const bw=w/bars.length;
+    bars.forEach((v,i)=>{
+      const bx=i*bw, passed=bx/w<p;
+      c.fillStyle=passed?CY:"rgba(255,255,255,.16)";
+      c.globalAlpha=passed?.85:1;
+      const bh=v*(h-46);
+      c.fillRect(bx,20+((h-46)-bh)/2+8,Math.max(1,bw-1),bh);
+      c.globalAlpha=1;
+    });
+    // chord markers
+    CH.forEach((n,i)=>{
+      const cx2=(i/CH.length)*w;
+      c.strokeStyle="rgba(255,255,255,.1)";c.beginPath();c.moveTo(cx2,18);c.lineTo(cx2,h-14);c.stroke();
+      c.fillStyle=(p>=i/CH.length&&p<(i+1)/CH.length)?"#fff":"rgba(255,255,255,.4)";
+      c.font="600 10px "+getComputedStyle(document.body).getPropertyValue("--mono");
+      c.fillText(n,cx2+4,h-3);
+    });
+    // playhead
+    const px=p*w;
+    c.strokeStyle=OK;c.lineWidth=1.5;c.shadowColor=OK;c.shadowBlur=9;
+    c.beginPath();c.moveTo(px,14);c.lineTo(px,h-12);c.stroke();c.shadowBlur=0;
+  });
+})();
+
+/*═══ progression generator ═══*/
+(function(){
+  const out=document.getElementById("progOut"), btn=document.getElementById("regen"), gc=document.getElementById("genreCap");
+  if(!out)return;
+  const DIA=[{c:"Cmaj7",r:"I"},{c:"Dm7",r:"ii"},{c:"Em7",r:"iii"},{c:"Fmaj7",r:"IV"},{c:"G7",r:"V"},{c:"Am7",r:"vi"},{c:"Bm7b5",r:"vii°"}];
+  const ROOT={ "Cmaj7":0,"Dm7":2,"Em7":4,"Fmaj7":5,"G7":7,"Am7":9,"Bm7b5":11 };
+  const SETS=[
+    {g:"POP",p:[0,4,5,3]},{g:"POP",p:[5,3,0,4]},{g:"JAZZ",p:[1,4,0,0]},
+    {g:"LO-FI",p:[1,4,2,5]},{g:"BLUES",p:[0,3,0,4]},{g:"FOLK",p:[0,5,3,4]},
+    {g:"R&B",p:[3,4,2,5]},{g:"CINEMATIC",p:[5,3,1,4]},
+  ];
+  let i=0;
+  function render(){
+    const s=SETS[i%SETS.length]; i++;
+    gc.textContent=s.g; out.innerHTML="";
+    s.p.forEach((d,k)=>{
+      const it=DIA[d], el=document.createElement("span");
+      el.className="pchip"; el.style.animationDelay=(k*70)+"ms";
+      el.style.borderColor=pcColor(ROOT[it.c])+"55";
+      el.innerHTML="<b>"+it.r+"</b>"+it.c;
+      el.style.color=pcColor(ROOT[it.c]);
+      out.appendChild(el);
+    });
+  }
+  btn.addEventListener("click",render); render();
+})();
+
+/*═══ fretboard ═══*/
+(function(){
+  const svg=document.getElementById("fretSvg"), tabs=document.getElementById("tabOut"),
+        chips=document.getElementById("fretChords"), nameEl=document.getElementById("fretName");
+  if(!svg)return;
+  const SHAPES={
+    "Cmaj7":[null,3,2,0,0,0], "Am7":[5,null,5,5,5,null],
+    "Fmaj7":[null,null,3,2,1,0], "G7":[3,2,0,0,0,1], "Dm7":[null,null,0,2,1,1],
+  };
+  const STR=["E","A","D","G","B","e"], NS="http://www.w3.org/2000/svg";
+  function draw(name){
+    const frets=SHAPES[name]; nameEl.textContent=name;
+    svg.innerHTML="";
+    const W=460,H=160,L=26,NF=5,cw=(W-L)/NF,rh=H/6;
+    const bg=document.createElementNS(NS,"rect");
+    bg.setAttribute("x",L);bg.setAttribute("y",0);bg.setAttribute("width",W-L);bg.setAttribute("height",H);
+    bg.setAttribute("fill","rgba(60,44,34,.32)");bg.setAttribute("rx","6");svg.appendChild(bg);
+    for(let f=0;f<=NF;f++){
+      const x=L+f*cw,l=document.createElementNS(NS,"line");
+      l.setAttribute("x1",x);l.setAttribute("y1",0);l.setAttribute("x2",x);l.setAttribute("y2",H);
+      l.setAttribute("stroke",f===0?"rgba(255,255,255,.65)":"rgba(255,255,255,.16)");
+      l.setAttribute("stroke-width",f===0?3:1);svg.appendChild(l);
+    }
+    for(let s=0;s<6;s++){
+      const y=(s+.5)*rh,l=document.createElementNS(NS,"line");
+      l.setAttribute("x1",L);l.setAttribute("y1",y);l.setAttribute("x2",W);l.setAttribute("y2",y);
+      l.setAttribute("stroke","rgba(255,255,255,.2)");l.setAttribute("stroke-width",1+(6-s)*.12);svg.appendChild(l);
+      const t=document.createElementNS(NS,"text");
+      t.setAttribute("x",8);t.setAttribute("y",y+4);t.setAttribute("fill","rgba(255,255,255,.35)");
+      t.setAttribute("font-size","10");t.setAttribute("font-family","monospace");
+      t.textContent=STR[5-s];svg.appendChild(t);
+    }
+    frets.forEach((f,i)=>{
+      const s=5-i,y=(s+.5)*rh;
+      if(f===null){
+        const t=document.createElementNS(NS,"text");
+        t.setAttribute("x",L-12);t.setAttribute("y",y+4);t.setAttribute("fill","rgba(255,255,255,.3)");
+        t.setAttribute("font-size","11");t.setAttribute("font-family","monospace");t.textContent="×";svg.appendChild(t);
+        return;
+      }
+      const x=f===0?L-11:L+(f-.5)*cw;
+      const cc=document.createElementNS(NS,"circle");
+      cc.setAttribute("cx",x);cc.setAttribute("cy",y);cc.setAttribute("r",f===0?6:11);
+      cc.setAttribute("fill",f===0?"none":pcColor((40+[0,5,10,15,19,24][i]+f)%12));
+      cc.setAttribute("stroke",f===0?"rgba(255,255,255,.6)":"rgba(0,0,0,.3)");
+      cc.setAttribute("stroke-width",f===0?2:1);
+      cc.style.opacity="0";cc.style.transition="opacity .3s ease "+(i*45)+"ms";
+      svg.appendChild(cc); requestAnimationFrame(()=>cc.style.opacity="1");
+      if(f>0){
+        const t=document.createElementNS(NS,"text");
+        t.setAttribute("x",x);t.setAttribute("y",y+4);t.setAttribute("text-anchor","middle");
+        t.setAttribute("fill","#0b0c11");t.setAttribute("font-size","10");t.setAttribute("font-weight","700");
+        t.setAttribute("font-family","monospace");t.textContent=f;svg.appendChild(t);
+      }
+    });
+    tabs.textContent=STR.map((s,i)=>{
+      const f=frets[5-i]; return s.padEnd(2)+"|--"+(f===null?"x":f)+"--";
+    }).reverse().join("\n");
+  }
+  Object.keys(SHAPES).forEach((n,i)=>{
+    const b=document.createElement("button");
+    b.className="btn";b.style.cssText="padding:7px 13px;font-size:12.5px;font-family:var(--mono)";
+    b.textContent=n;
+    b.addEventListener("mouseenter",()=>draw(n));
+    b.addEventListener("click",()=>draw(n));
+    b.addEventListener("focus",()=>draw(n));
+    chips.appendChild(b);
+  });
+  draw("Cmaj7");
+})();
+
+/*═══ SIGNATURE 3 — circle of fifths ═══*/
+(function(){
+  const svg=document.getElementById("cofSvg"); if(!svg)return;
+  const NS="http://www.w3.org/2000/svg";
+  const MAJ=[0,7,2,9,4,11,6,1,8,3,10,5], MIN=MAJ.map(p=>((p-3)+12)%12);
+  const SCALE=[0,2,4,5,7,9,11], ROM=["I","ii","iii","IV","V","vi","vii°"], QUAL=["","m","m","","","m","dim"];
+  const S=460,cx=S/2,cy=S/2,oR=S*.40,iR=S*.265;
+  const kEl=document.getElementById("ciKey"),rEl=document.getElementById("ciRel"),
+        nEl=document.getElementById("ciNotes"),dEl=document.getElementById("ciDia");
+  let sel=0;
+  function update(pc){
+    sel=pc;
+    kEl.textContent=NOTES[pc]+" Major"; kEl.style.color=pcColor(pc);
+    rEl.textContent=NOTES[((pc-3)+12)%12]+" minor";
+    nEl.innerHTML=SCALE.map(iv=>{
+      const p=(pc+iv)%12;
+      return '<span class="nchip" style="color:'+pcColor(p)+';border-color:'+pcColor(p)+'44">'+NOTES[p]+'</span>';
+    }).join("");
+    dEl.innerHTML=SCALE.map((iv,i)=>{
+      const p=(pc+iv)%12;
+      return '<span class="dchip" style="border-color:'+pcColor(p)+'44"><b>'+ROM[i]+'</b>'+NOTES[p]+QUAL[i]+'</span>';
+    }).join("");
+    svg.querySelectorAll("[data-pc]").forEach(g=>{
+      const on=+g.dataset.pc===pc, minor=g.dataset.minor==="1";
+      const rel=+g.dataset.pc===((pc-3)+12)%12;
+      const c=g.querySelector("circle");
+      c.setAttribute("stroke-width",on?3.5:(rel&&minor?3:(minor?2:0)));
+      c.setAttribute("stroke",on?"#fff":(rel&&minor?pcColor(+g.dataset.pc):pcColor(+g.dataset.pc)));
+      g.style.opacity=(on||(rel&&minor))?"1":".62";
+    });
+  }
+  function chip(i,r,pc,minor){
+    const a=(i/12)*2*Math.PI-Math.PI/2, x=cx+Math.cos(a)*r, y=cy+Math.sin(a)*r;
+    const g=document.createElementNS(NS,"g");
+    g.setAttribute("class","cof-seg"); g.dataset.pc=pc; g.dataset.minor=minor?"1":"0";
+    g.setAttribute("tabindex","0"); g.setAttribute("role","button");
+    g.setAttribute("aria-label",NOTES[pc]+(minor?" minor":" major"));
+    const c=document.createElementNS(NS,"circle");
+    c.setAttribute("cx",x);c.setAttribute("cy",y);c.setAttribute("r",minor?21:26);
+    c.setAttribute("fill",minor?"rgba(255,255,255,.05)":pcColor(pc));
+    c.setAttribute("stroke",pcColor(pc));c.setAttribute("stroke-width",minor?2:0);
+    const t=document.createElementNS(NS,"text");
+    t.setAttribute("x",x);t.setAttribute("y",y+(minor?4:5));t.setAttribute("text-anchor","middle");
+    t.setAttribute("font-size",minor?12:15);t.setAttribute("font-weight","700");
+    t.setAttribute("fill",minor?"rgba(255,255,255,.75)":"#0b0c11");
+    t.textContent=NOTES[pc]+(minor?"m":"");
+    g.append(c,t);
+    const go=()=>update(minor?((pc+3)%12):pc);
+    g.addEventListener("click",go);
+    g.addEventListener("mouseenter",go);
+    g.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go();}});
+    svg.appendChild(g);
+  }
+  for(let i=0;i<12;i++){chip(i,oR,MAJ[i],false);}
+  for(let i=0;i<12;i++){chip(i,iR,MIN[i],true);}
+  [oR,iR].forEach(r=>{
+    const c=document.createElementNS(NS,"circle");
+    c.setAttribute("cx",cx);c.setAttribute("cy",cy);c.setAttribute("r",r);
+    c.setAttribute("fill","none");c.setAttribute("stroke","rgba(255,255,255,.05)");
+    svg.insertBefore(c,svg.firstChild);
+  });
+  update(0);
+})();
+
+/*═══ chrome ═══*/
+document.getElementById("yr").textContent=new Date().getFullYear();
+const bg=document.getElementById("burger"),mn=document.getElementById("menu");
+bg.addEventListener("click",()=>{const o=mn.classList.toggle("open");bg.setAttribute("aria-expanded",String(o));});
+mn.addEventListener("click",e=>{if(e.target.tagName==="A"){mn.classList.remove("open");bg.setAttribute("aria-expanded","false");}});
+const lb=document.getElementById("lb"),lbi=document.getElementById("lbi");
+document.querySelectorAll(".shot").forEach(s=>s.addEventListener("click",()=>{
+  lbi.src=s.dataset.full;lbi.alt=s.dataset.cap;lb.classList.add("open");document.body.style.overflow="hidden";
+}));
+function closeLb(){lb.classList.remove("open");document.body.style.overflow="";}
+lb.addEventListener("click",closeLb);
+document.getElementById("lbx").addEventListener("click",closeLb);
+addEventListener("keydown",e=>{if(e.key==="Escape")closeLb();});
+</script>
+</body>
+</html>
