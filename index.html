@@ -470,7 +470,16 @@ footer{border-top:1px solid var(--line);padding:44px 0 30px;margin-top:44px}
           <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>Full analysis engine &amp; theory tools</li>
           <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>MIDI import <em>and</em> export</li>
         </ul>
-        <div class="code">npm install<br>npm start <i># run</i><br>npm run dist <i># build installer</i></div>
+        <a class="btn pri" style="margin-top:16px;width:100%;justify-content:center"
+           href="https://github.com/junyaaa2819/humtheory/releases/latest/download/HumTheory-Setup.exe">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Download for Windows
+        </a>
+        <div style="font-family:var(--mono);font-size:10.5px;color:var(--tx3);margin-top:9px;line-height:1.7">
+          Windows 10 &amp; 11 · unsigned build<br>
+          SmartScreen will warn — click <b style="color:var(--tx2)">More info → Run anyway</b>
+        </div>
+        <a href="https://github.com/junyaaa2819/humtheory" style="font-size:12.5px;color:var(--tx2);margin-top:10px;display:inline-block;border-bottom:1px solid var(--line)">or build from source</a>
       </div>
       <div class="pcard">
         <h4><svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.8c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.15-2.8.85-3.5.85s-1.8-.83-3-.8c-1.5.02-2.9.9-3.7 2.25-1.6 2.75-.4 6.8 1.1 9 .75 1.1 1.6 2.3 2.8 2.25 1.1-.05 1.5-.7 2.9-.7s1.7.7 2.9.7c1.2 0 2-1.1 2.7-2.2.85-1.25 1.2-2.5 1.2-2.55-.03-.02-2.3-.9-2.3-3.5zM14.1 5.9c.6-.75 1-1.8.9-2.9-.87.04-1.95.6-2.6 1.35-.57.65-1.07 1.7-.93 2.7.98.08 1.98-.5 2.63-1.15z"/></svg>HumTheory for macOS</h4>
@@ -479,13 +488,22 @@ footer{border-top:1px solid var(--line);padding:44px 0 30px;margin-top:44px}
           <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>Full analysis engine &amp; theory tools</li>
           <li><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="3" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>Playback against a detected chord timeline</li>
         </ul>
-        <div class="code">open HumTheory.xcodeproj<br><i># Product → Run (⌘R)</i></div>
+        <a class="btn pri" style="margin-top:16px;width:100%;justify-content:center"
+           href="https://github.com/junyaaa2819/humtheory/releases/latest/download/HumTheory-macOS.zip">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Download for macOS
+        </a>
+        <div style="font-family:var(--mono);font-size:10.5px;color:var(--tx3);margin-top:9px;line-height:1.7">
+          Apple Silicon · macOS 14+ · unsigned build<br>
+          First launch: <b style="color:var(--tx2)">right-click the app → Open</b>
+        </div>
+        <a href="https://github.com/junyaaa2819/humtheory" style="font-size:12.5px;color:var(--tx2);margin-top:10px;display:inline-block;border-bottom:1px solid var(--line)">or build from source</a>
       </div>
     </div>
 
     <div class="betanote rv">
       <b>HumTheory is currently in beta.</b>
-      <p>Some features may be incomplete, experimental, or not work correctly yet. Detection is an estimate — the app shows confidence values and flags ambiguous chords rather than pretending to be certain. Project saving and piano-roll note editing aren't built yet. There are no hosted installers so far; the beta is built from source.</p>
+      <p>Some features may be incomplete, experimental, or not work correctly yet. Detection is an estimate — the app shows confidence values and flags ambiguous chords rather than pretending to be certain. Project saving and piano-roll note editing aren't built yet. Builds are published as GitHub releases and are not code-signed yet, so Windows and macOS will both show a warning the first time you open them.</p>
     </div>
   </div>
 </section>
